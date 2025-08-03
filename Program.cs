@@ -35,6 +35,8 @@ namespace LibraryOOP
                 Console.WriteLine("  5  View All Books");
                 Console.WriteLine("  6  View All Members");
                 Console.WriteLine("  7  View Borrow Records");
+                Console.WriteLine("  8  View Returned Books");
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("  0  Exit");
                 Console.ResetColor();
 
@@ -49,7 +51,8 @@ namespace LibraryOOP
                     case "4": ReturnBook(libraryService); break;
                     case "5": ViewBooks(bookRepo); break;
                     case "6": ViewMembers(memberRepo); break;
-                    case "7": ViewBorrowRecords(recordRepo); break;
+                    case "7": ViewBorrowRecords(recordRepo, bookRepo, memberRepo); break;
+                    case "8": ViewReturnedBooks(recordRepo, bookRepo, memberRepo); break;
                     case "0":
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine("\n Exiting system. Goodbye!");
@@ -246,40 +249,76 @@ namespace LibraryOOP
 
         }
         // Method to view all borrow records
-        static void ViewBorrowRecords(IBorrowRecordRepository repo)
+        static void ViewBorrowRecords(IBorrowRecordRepository recordRepo, IBookRepository bookRepo, IMemberRepository memberRepo)
         {
-            var records = repo.GetAllBorrowRecord();
+            var records = recordRepo.GetAllBorrowRecord();
             Console.Clear();
             Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine("╔════════════════════════════════════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║                                BORROW RECORDS                                          ║");
-            Console.WriteLine("╠════╦════════╦══════════╦════════════════════════════╦══════════════════════════════════╣");
-            Console.WriteLine("║ ID ║ BookID ║ MemberID ║       Borrow Date          ║         Return Status            ║");
-            Console.WriteLine("╠════╬════════╬══════════╬════════════════════════════╬══════════════════════════════════╣");
+            Console.WriteLine("╔════════╦════════════╦════════════════════╦════════════╦════════════════════════════╦══════════════════════════════╗");
+            Console.WriteLine("║ Rec ID ║  Book ID   ║     Book Title     ║ Member ID  ║        Member Name         ║        Return Status         ║");
+            Console.WriteLine("╠════════╬════════════╬════════════════════╬════════════╬════════════════════════════╬══════════════════════════════╣");
             Console.ResetColor();
 
             foreach (var record in records)
             {
-                string borrowDate = record.BorrowDate.ToString("yyyy-MM-dd HH:mm");
-                string returnStatus;
-                Console.ForegroundColor = ConsoleColor.Gray;
+                var book = bookRepo.GetAllBooks().FirstOrDefault(b => b.BookId == record.BookId);
+                var member = memberRepo.GetAllMembers().FirstOrDefault(m => m.MemberId == record.MemberId);
 
+                string bookTitle = book != null ? Truncate(book.Title, 20) : "Unknown";
+                string memberName = member != null ? Truncate(member.MemberName, 24) : "Unknown";
+
+                string returnStatus;
                 if (record.ReturnDate == null)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    returnStatus = " Not Returned";
+                    returnStatus = "Not Returned";
                 }
                 else
                 {
                     Console.ForegroundColor = ConsoleColor.Green;
-                    returnStatus = $" Returned on {record.ReturnDate.Value:yyyy-MM-dd}";
+                    returnStatus = $"Returned on {record.ReturnDate.Value:yyyy-MM-dd}";
                 }
 
-                Console.WriteLine($"║ {record.BorrowRecordId,-2} ║ {record.BookId,-6} ║ {record.MemberId,-8} ║ {borrowDate,-26} ║ {returnStatus,-30} ║");
+                Console.WriteLine($"║ {record.BorrowRecordId,-6} ║ {record.BookId,-10} ║ {bookTitle,-20} ║ {record.MemberId,-10} ║ {memberName,-26} ║ {returnStatus,-28} ║");
             }
-            Console.ResetColor();
-            Console.WriteLine("╚════╩════════╩══════════╩════════════════════════════╩══════════════════════════════════╝");
 
+            Console.ResetColor();
+            Console.WriteLine("╚════════╩════════════╩════════════════════╩════════════╩════════════════════════════╩══════════════════════════════╝");
+
+            // Helper method to truncate long strings
+            string Truncate(string text, int maxLength) =>
+                text.Length <= maxLength ? text : text.Substring(0, maxLength - 3) + "...";
         }
+        // Method to view all returned books
+        static void ViewReturnedBooks(IBorrowRecordRepository borrowRepo, IBookRepository bookRepo, IMemberRepository memberRepo)
+        {
+            var records = borrowRepo.GetAllBorrowRecord().Where(r => r.ReturnDate != null).ToList();
+
+            Console.Clear();
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║                               RETURNED BOOK RECORDS                                 ║");
+            Console.WriteLine("╠════╦══════════════╦════════════════════╦══════════════╦══════════════════════════════╣");
+            Console.WriteLine("║ ID ║   Book ID    ║     Book Title     ║  Member ID   ║        Member Name           ║");
+            Console.WriteLine("╠════╬══════════════╬════════════════════╬══════════════╬══════════════════════════════╣");
+            Console.ResetColor();
+
+            foreach (var record in records)
+            {
+                var book = bookRepo.GetAllBooks().FirstOrDefault(b => b.BookId == record.BookId);
+                var member = memberRepo.GetAllMembers().FirstOrDefault(m => m.MemberId == record.MemberId);
+
+                if (book != null && member != null)
+                {
+                    Console.WriteLine($"║ {record.BorrowRecordId,-2} ║ {book.BookId,-12} ║ {Truncate(book.Title, 20),-20} ║ {member.MemberId,-12} ║ {Truncate(member.MemberName, 28),-28} ║");
+                }
+            }
+
+            Console.WriteLine("╚════╩══════════════╩════════════════════╩══════════════╩══════════════════════════════╝");
+
+            string Truncate(string text, int maxLength) =>
+                text.Length <= maxLength ? text : text.Substring(0, maxLength - 3) + "...";
+        }
+
     }
 }
