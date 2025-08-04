@@ -13,10 +13,10 @@ namespace LibraryOOP
         {
             FileContext fileContext = new FileContext();
 
-            var bookRepo = new BookRepository(fileContext);
-            var memberRepo = new MemberRepository(fileContext);
-            var recordRepo = new BorrowRecordRepository(fileContext);
-            var libraryService = new LibraryService(bookRepo, memberRepo, recordRepo);
+            BookRepository bookRepo = new BookRepository(fileContext);
+            MemberRepository memberRepo = new MemberRepository(fileContext);
+            BorrowRecordRepository recordRepo = new BorrowRecordRepository(fileContext);
+            LibraryService libraryService = new LibraryService(bookRepo, memberRepo, recordRepo);
 
             while (true)
             {
@@ -64,6 +64,7 @@ namespace LibraryOOP
                         Console.ResetColor();
                         Console.ReadKey();
                         break;
+
                 }
 
                 Console.ForegroundColor = ConsoleColor.Cyan;
