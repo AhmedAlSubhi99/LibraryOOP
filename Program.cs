@@ -47,8 +47,8 @@ namespace LibraryOOP
                 {
                     case "1": AddBook(libraryService); break;
                     case "2": RegisterMember(libraryService); break;
-                    case "3": BorrowBook(libraryService); break;
-                    case "4": ReturnBook(libraryService); break;
+                    case "3": BorrowBook(libraryService, bookRepo, memberRepo); break;
+                    case "4": ReturnBook(libraryService, recordRepo, bookRepo, memberRepo); break;
                     case "5": ViewBooks(bookRepo); break;
                     case "6": ViewMembers(memberRepo); break;
                     case "7": ViewBorrowRecords(recordRepo, bookRepo, memberRepo); break;
@@ -141,7 +141,7 @@ namespace LibraryOOP
             Console.ReadKey();
         }
         // Method to borrow a book
-        static void BorrowBook(ILibraryService service)
+        static void BorrowBook(ILibraryService service, IBookRepository bookRepo, IMemberRepository memberRepo)
         {
             Console.Clear();
             Console.ForegroundColor = ConsoleColor.DarkYellow;
@@ -150,7 +150,58 @@ namespace LibraryOOP
             Console.WriteLine("╚══════════════════════════════╝");
             Console.ResetColor();
 
-            Console.Write(" Book ID: ");
+            // Show available books
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine("\nAvailable Books:");
+            Console.ResetColor();
+
+            var books = bookRepo.GetAllBooks().Where(b => b.IsAvailable).ToList();
+            if (books.Count == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("No available books to borrow.");
+                Console.ResetColor();
+                Console.ReadKey();
+                return;
+            }
+
+            Console.WriteLine("╔════╦════════════════════════╦════════════════════╗");
+            Console.WriteLine("║ ID ║         Title          ║       Author      ║");
+            Console.WriteLine("╠════╬════════════════════════╬════════════════════╣");
+
+            foreach (var book in books)
+            {
+                Console.WriteLine($"║ {book.BookId,-2} ║ {Truncate(book.Title, 24),-24} ║ {Truncate(book.Author, 20),-20} ║");
+            }
+            Console.WriteLine("╚════╩════════════════════════╩════════════════════╝");
+
+            // Show member list
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("\nRegistered Members:");
+            Console.ResetColor();
+
+            var members = memberRepo.GetAllMembers();
+            if (members.Count == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("No members registered.");
+                Console.ResetColor();
+                Console.ReadKey();
+                return;
+            }
+
+            Console.WriteLine("╔════╦════════════════════════════════════════╗");
+            Console.WriteLine("║ ID ║              Member Name               ║");
+            Console.WriteLine("╠════╬════════════════════════════════════════╣");
+
+            foreach (var member in members)
+            {
+                Console.WriteLine($"║ {member.MemberId,-2} ║ {Truncate(member.MemberName, 40),-40} ║");
+            }
+            Console.WriteLine("╚════╩════════════════════════════════════════╝");
+
+            // Now ask for input
+            Console.Write("\n Book ID: ");
             if (!int.TryParse(Console.ReadLine(), out int bookId) || bookId <= 0)
             {
                 Console.WriteLine(" Invalid Book ID.");
@@ -167,9 +218,13 @@ namespace LibraryOOP
             service.BorrowBook(bookId, memberId);
             Console.WriteLine(" Borrow request processed. Press any key to return...");
             Console.ReadKey();
+
+            string Truncate(string text, int maxLength) =>
+                text.Length <= maxLength ? text : text.Substring(0, maxLength - 3) + "...";
         }
+
         // Method to return a borrowed book
-        static void ReturnBook(ILibraryService service)
+        static void ReturnBook(ILibraryService service, IBorrowRecordRepository recordRepo, IBookRepository bookRepo, IMemberRepository memberRepo)
         {
             Console.Clear();
             Console.ForegroundColor = ConsoleColor.Green;
@@ -178,7 +233,43 @@ namespace LibraryOOP
             Console.WriteLine("╚══════════════════════════════╝");
             Console.ResetColor();
 
-            Console.Write(" Book ID: ");
+            // Get borrowed books only (ReturnDate == null)
+            var borrowedRecords = recordRepo.GetAllBorrowRecord()
+                                             .Where(r => r.ReturnDate == null)
+                                             .ToList();
+
+            if (borrowedRecords.Count == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("No borrowed books found. Nothing to return.");
+                Console.ResetColor();
+                Console.ReadKey();
+                return;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("\nCurrently Borrowed Books:");
+            Console.ResetColor();
+
+            Console.WriteLine("╔════╦════════════╦════════════════════╦══════════════╦══════════════════════════════╗");
+            Console.WriteLine("║ ID ║  Book ID   ║     Book Title     ║  Member ID   ║        Member Name           ║");
+            Console.WriteLine("╠════╬════════════╬════════════════════╬══════════════╬══════════════════════════════╣");
+
+            foreach (var record in borrowedRecords)
+            {
+                var book = bookRepo.GetAllBooks().FirstOrDefault(b => b.BookId == record.BookId);
+                var member = memberRepo.GetAllMembers().FirstOrDefault(m => m.MemberId == record.MemberId);
+
+                if (book != null && member != null)
+                {
+                    Console.WriteLine($"║ {record.BorrowRecordId,-2} ║ {book.BookId,-10} ║ {Truncate(book.Title, 20),-20} ║ {member.MemberId,-12} ║ {Truncate(member.MemberName, 28),-28} ║");
+                }
+            }
+
+            Console.WriteLine("╚════╩════════════╩════════════════════╩══════════════╩══════════════════════════════╝");
+
+            // Input Section
+            Console.Write("\n Book ID: ");
             if (!int.TryParse(Console.ReadLine(), out int bookId) || bookId <= 0)
             {
                 Console.WriteLine(" Invalid Book ID.");
@@ -195,7 +286,11 @@ namespace LibraryOOP
             service.ReturnBook(bookId, memberId);
             Console.WriteLine(" Return request processed. Press any key to return...");
             Console.ReadKey();
+
+            string Truncate(string text, int maxLength) =>
+                text.Length <= maxLength ? text : text.Substring(0, maxLength - 3) + "...";
         }
+
         // Method to view all books
         static void ViewBooks(IBookRepository repo)
         {
