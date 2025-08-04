@@ -45,8 +45,8 @@ namespace LibraryOOP
 
                 switch (input)
                 {
-                    case "1": AddBook(libraryService); break;
-                    case "2": RegisterMember(libraryService); break;
+                    case "1": AddBook(libraryService, bookRepo); break;
+                    case "2": RegisterMember(libraryService, memberRepo); break;
                     case "3": BorrowBook(libraryService, bookRepo, memberRepo); break;
                     case "4": ReturnBook(libraryService, recordRepo, bookRepo, memberRepo); break;
                     case "5": ViewBooks(bookRepo); break;
@@ -73,7 +73,7 @@ namespace LibraryOOP
             }
         }
         // Method to add a new book
-        static void AddBook(ILibraryService service)
+        static void AddBook(ILibraryService service, IBookRepository bookRepo)
         {
             Console.Clear();
             Console.ForegroundColor = ConsoleColor.Blue;
@@ -81,9 +81,44 @@ namespace LibraryOOP
             Console.WriteLine("║         ADD NEW BOOK       ║");
             Console.WriteLine("╚════════════════════════════╝");
             Console.ResetColor();
+            // View existing books
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("\nExisting Books:");
+            Console.ResetColor();
+            var books = bookRepo.GetAllBooks();
+            if (books.Count == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("No books available in the library.");
+                Console.ResetColor();
+                Console.ReadKey();
+                return;
+            }
+            Console.WriteLine("╔════╦════════════════════════╦════════════════════╗");
+            Console.WriteLine("║ ID ║         Title          ║       Author       ║");
+            Console.WriteLine("╠════╬════════════════════════╬════════════════════╣");
+            foreach (var b in books)
+            {
+                Console.WriteLine($"║ {b.BookId,-2} ║ {Truncate(b.Title, 24),-24} ║ {Truncate(b.Author, 20),-20} ║");
+            }
+            Console.WriteLine("╚════╩════════════════════════╩════════════════════╝");
 
-            Console.Write(" Book ID (int): ");
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("\nEnter Book Details:");
+            Console.ResetColor();
+
+            Console.Write(" Book ID : ");
             if (!int.TryParse(Console.ReadLine(), out int id) || id <= 0)
+            {
+                Console.WriteLine(" Invalid Book ID. Must be a positive integer.");
+                return;
+            }
+            if (bookRepo.GetAllBooks().Any(b => b.BookId == id))
+            {
+                Console.WriteLine(" A book with this ID already exists.");
+                return;
+            }
+            if (id <= 0)
             {
                 Console.WriteLine(" Invalid Book ID. Must be a positive integer.");
                 return;
@@ -96,7 +131,16 @@ namespace LibraryOOP
                 Console.WriteLine(" Title cannot be empty.");
                 return;
             }
-
+            if (bookRepo.GetAllBooks().Any(b => b.Title.Equals(title, StringComparison.OrdinalIgnoreCase)))
+            {
+                Console.WriteLine(" A book with this title already exists.");
+                return;
+            }
+            if (title.Length > 50)
+            {
+                Console.WriteLine(" Title is too long. Maximum length is 50 characters.");
+                return;
+            }
             Console.Write(" Author: ");
             string author = Console.ReadLine() ?? "";
             if (string.IsNullOrWhiteSpace(author))
@@ -104,14 +148,28 @@ namespace LibraryOOP
                 Console.WriteLine(" Author name cannot be empty.");
                 return;
             }
+            if (author.Length > 30)
+            {
+                Console.WriteLine(" Author name is too long. Maximum length is 30 characters.");
+                return;
+            }
+            if (bookRepo.GetAllBooks().Any(b => b.Author.Equals(author, StringComparison.OrdinalIgnoreCase)))
+            {
+                Console.WriteLine(" A book by this author already exists.");
+                return;
+            }
 
             var book = new Book { BookId = id, Title = title, Author = author, IsAvailable = true };
             service.AddBook(book);
             Console.WriteLine(" Book added. Press any key to return...");
             Console.ReadKey();
+            string Truncate(string text, int maxLength)
+            {
+                return text.Length <= maxLength ? text : text.Substring(0, maxLength - 3) + "...";
+            }
         }
         // Method to register a new member
-        static void RegisterMember(ILibraryService service)
+        static void RegisterMember(ILibraryService service, IMemberRepository memberRepo)
         {
             Console.Clear();
             Console.ForegroundColor = ConsoleColor.Magenta;
@@ -119,11 +177,47 @@ namespace LibraryOOP
             Console.WriteLine("║       REGISTER MEMBER       ║");
             Console.WriteLine("╚═════════════════════════════╝");
             Console.ResetColor();
+            // View Registered Members
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("\nRegistered Members:");
+            Console.ResetColor();
+            var members = memberRepo.GetAllMembers();
+            if (members.Count == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("No members registered yet.");
+                Console.ResetColor();
+                Console.ReadKey();
+                return;
+            }
+            Console.WriteLine("╔════╦════════════════════════════════════════╗");
+            Console.WriteLine("║ ID ║              Member Name               ║");
+            Console.WriteLine("╠════╬════════════════════════════════════════╣");
+            foreach (var m in members)
+            {
+                Console.WriteLine($"║ {m.MemberId,-2} ║ {Truncate(m.MemberName, 40),-40} ║");
+            }
+            Console.WriteLine("╚════╩════════════════════════════════════════╝");
 
-            Console.Write(" Member ID (int): ");
+            Console.Write(" Member ID : ");
             if (!int.TryParse(Console.ReadLine(), out int id) || id <= 0)
             {
                 Console.WriteLine(" Invalid Member ID. Must be a positive integer.");
+                return;
+            }
+            if (memberRepo.GetAllMembers().Any(m => m.MemberId == id))
+            {
+                Console.WriteLine(" A member with this ID already exists.");
+                return;
+            }
+            if (id <= 0)
+            {
+                Console.WriteLine(" Invalid Member ID. Must be a positive integer.");
+                return;
+            }
+            if (id.ToString().Length > 5)
+            {
+                Console.WriteLine(" Member ID is too long. Maximum length is 5 digits.");
                 return;
             }
 
@@ -134,11 +228,25 @@ namespace LibraryOOP
                 Console.WriteLine(" Name cannot be empty.");
                 return;
             }
+            if (name.Length > 50)
+            {
+                Console.WriteLine(" Name is too long. Maximum length is 50 characters.");
+                return;
+            }
+            if (name.Length < 3)
+            {
+                Console.WriteLine(" Name is too short. Minimum length is 3 characters.");
+                return;
+            }
 
             var member = new Member { MemberId = id, MemberName = name };
             service.RegisterMember(member);
-            Console.WriteLine(" Member registered. Press any key to return...");
+            Console.WriteLine("Member registered. Press any key to return...");
             Console.ReadKey();
+            string Truncate(string text, int maxLength)
+            {
+                return text.Length <= maxLength ? text : text.Substring(0, maxLength - 3) + "...";
+            }
         }
         // Method to borrow a book
         static void BorrowBook(ILibraryService service, IBookRepository bookRepo, IMemberRepository memberRepo)
@@ -166,7 +274,7 @@ namespace LibraryOOP
             }
 
             Console.WriteLine("╔════╦════════════════════════╦════════════════════╗");
-            Console.WriteLine("║ ID ║         Title          ║       Author      ║");
+            Console.WriteLine("║ ID ║         Title          ║       Author       ║");
             Console.WriteLine("╠════╬════════════════════════╬════════════════════╣");
 
             foreach (var book in books)
@@ -201,28 +309,54 @@ namespace LibraryOOP
             Console.WriteLine("╚════╩════════════════════════════════════════╝");
 
             // Now ask for input
+            Console.ForegroundColor = ConsoleColor.Gray;
             Console.Write("\n Book ID: ");
             if (!int.TryParse(Console.ReadLine(), out int bookId) || bookId <= 0)
             {
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(" Invalid Book ID.");
+                Console.ResetColor();
+                Console.ReadKey();
+                return;
+            }
+            if (!books.Any(b => b.BookId == bookId))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(" Book not found or not available.");
+                Console.ResetColor();
+                Console.ReadKey();
                 return;
             }
 
+            Console.ForegroundColor = ConsoleColor.Gray;
             Console.Write(" Member ID: ");
             if (!int.TryParse(Console.ReadLine(), out int memberId) || memberId <= 0)
             {
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(" Invalid Member ID.");
+                Console.ResetColor();
+                Console.ReadKey();
+                return;
+            }
+            if (!members.Any(m => m.MemberId == memberId))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(" Member not found.");
+                Console.ResetColor();
+                Console.ReadKey();
                 return;
             }
 
+
             service.BorrowBook(bookId, memberId);
+            Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine(" Borrow request processed. Press any key to return...");
+            Console.ResetColor();
             Console.ReadKey();
 
             string Truncate(string text, int maxLength) =>
                 text.Length <= maxLength ? text : text.Substring(0, maxLength - 3) + "...";
         }
-
         // Method to return a borrowed book
         static void ReturnBook(ILibraryService service, IBorrowRecordRepository recordRepo, IBookRepository bookRepo, IMemberRepository memberRepo)
         {
@@ -269,28 +403,46 @@ namespace LibraryOOP
             Console.WriteLine("╚════╩════════════╩════════════════════╩══════════════╩══════════════════════════════╝");
 
             // Input Section
+            Console.ForegroundColor = ConsoleColor.Gray;
             Console.Write("\n Book ID: ");
             if (!int.TryParse(Console.ReadLine(), out int bookId) || bookId <= 0)
             {
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(" Invalid Book ID.");
+                Console.ResetColor();
+                Console.ReadKey();
+                return;
+            }
+            if (!borrowedRecords.Any(r => r.BookId == bookId))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(" This book is not currently borrowed.");
+                Console.ResetColor();
+                Console.ReadKey();
                 return;
             }
 
+            Console.ForegroundColor = ConsoleColor.Gray;
             Console.Write(" Member ID: ");
             if (!int.TryParse(Console.ReadLine(), out int memberId) || memberId <= 0)
             {
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(" Invalid Member ID.");
+                Console.ResetColor();
+                Console.ReadKey();
                 return;
             }
 
+
             service.ReturnBook(bookId, memberId);
+            Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine(" Return request processed. Press any key to return...");
+            Console.ResetColor();
             Console.ReadKey();
 
             string Truncate(string text, int maxLength) =>
                 text.Length <= maxLength ? text : text.Substring(0, maxLength - 3) + "...";
         }
-
         // Method to view all books
         static void ViewBooks(IBookRepository repo)
         {
